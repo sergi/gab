@@ -175,7 +175,7 @@ asynChat.prototype = {
         this.connected = false;
 
         try {
-            this.socket.close()
+            this.socket.end()
         } catch (e) {
             // If not ENOTCONN or EBADF
             // if why.args[0] not in (ENOTCONN, EBADF):
