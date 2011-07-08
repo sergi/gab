@@ -3,19 +3,25 @@ var Gab = require("../gab");
 
 var FTP_PORT = 21;
 
+var RE_PASV = /[-\d]+,[-\d]+,[-\d]+,[-\d]+,([-\d]+),([-\d]+)/;
+
 var Ftp = function (cfg) {
     Gab.apply(this, arguments);
 
     this.data = "";
 
-    var port = cfg.port || FTP_PORT;
-    var host = cfg.host;
+    var port = this.port = cfg.port || FTP_PORT;
+    var host = this.host = cfg.host;
     var user = this.user = cfg.user;
     var pass = this.pass = cfg.pass;
 
     this.commands = [
-        "QUIT",
+        "PASV", Ftp.handleResponse.PASV,
+        "LIST",
+        //STAT /",
+        //"NOOP",
         "PWD",
+        "QUIT",
     ];
 
     this.response = [];
@@ -50,8 +56,21 @@ Ftp.handleResponse = {
             return; // user and password accepted
         }
         else {
-            throw new Error("ftp login failed: user/password not accepted");
+            throw new Error("ftp login failed: password not accepted");
         }
+    },
+    "PASV": function(res) {
+        var code = res.substring(0, 3); // get response code
+        if (code !== "227")
+            return // pasv failed
+
+        var match = RE_PASV.exec(res);
+        if (!match)
+            return // bad port
+
+        port = (parseInt(match[1]) & 255) * 256 + (parseInt(match[2]) & 255);
+        // establish data connection
+        new ftpDownload(this.host, port);
     }
 };
 
@@ -63,7 +82,7 @@ Ftp.prototype.foundTerminator = function() {
     var data = this.data;
 
     if (data.charAt(data.length - 1) === "\r")
-        data = data.substring(0, data.length - 2);
+        data = data.substring(0, data.length - 1);
 
     this.data = "";
     this.response.push(data);
@@ -73,7 +92,6 @@ Ftp.prototype.foundTerminator = function() {
 
     var response = this.response;
     this.response = [];
-
 
     response.forEach(function(line) {
         console.log("S:", line);
@@ -93,8 +111,14 @@ Ftp.prototype.foundTerminator = function() {
 
     var command;
     if (this.commands.length) {
-        command = this.commands.pop();
-        console.log("C:", command);
+        command = this.commands.shift();
+        var len = this.commands.length;
+
+        if (len && typeof this.commands[0] === "function") {
+            this.handler = this.commands.shift();
+        }
+        console.log("C:", "'" + command + "'");
+
         this.push(command + "\r\n");
     }
 };
@@ -110,11 +134,40 @@ Ftp.prototype.ftpHandleConnect = function(res) {
     }
 };
 
+
+var ftpDownload = function(host, port) {
+    Gab.apply(this, arguments);
+
+    this.setTerminator("\n");
+
+    this.socket = Net.createConnection(port, host);
+    this.connect(host, port);
+}
+
+ftpDownload.prototype = new Gab;
+ftpDownload.prototype.constructor = ftpDownload;
+
+ftpDownload.prototype.writable = function() {
+    return false;
+};
+
+ftpDownload.prototype.handleConnect = function(e) {console.log(e)};
+
+ftpDownload.prototype.handleExpt = function() {
+    this.close();
+};
+
+ftpDownload.prototype.handleClose = function() {
+    this.close();
+};
+
+
+
 // Fire it up. For test purposes only!
 var ftp = new Ftp({
-    port: 2021,
-    host: "localhost",
-    user: "sergi",
-    pass: "2x8hebsndr9"
+    port: 21,
+    host: "sergimansilla.com",
+    user: "mrclash",
+    pass: ""
 });
 
