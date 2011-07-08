@@ -6,6 +6,8 @@ var FTP_PORT = 21;
 var anonFtp = function (cfg) {
     Gab.apply(this, arguments);
 
+    this.data = ""
+
     var port = cfg.port;
     var host = cfg.host;
 
@@ -19,9 +21,6 @@ var anonFtp = function (cfg) {
     this.setTerminator("\n");
     this.setEncoding("utf8")
 
-    this.data = ""
-
-    // connect to ftp server
     this.connect(port, host);
 }
 
@@ -30,7 +29,7 @@ anonFtp.prototype.constructor = anonFtp;
 
 anonFtp.prototype.collectIncomingData = function(data) {
     this.data += data;
-}
+};
 
 anonFtp.prototype.foundTerminator = function() {
     var data = this.data;
@@ -50,7 +49,7 @@ anonFtp.prototype.foundTerminator = function() {
             this.push(command + "\r\n");
         }
     }
-}
+};
 
 var ftp = new anonFtp({
     port: 2021,
