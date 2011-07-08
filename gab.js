@@ -22,7 +22,7 @@ you - by calling your self.found_terminator() method.
 
 var Net = require("net");
 
-var asynChat = module.exports = function asynChat() {
+var Gab = module.exports = function Gab() {
     // This is an abstract class.  You must derive from this class, and add
     // the two methods collect_incoming_data() and found_terminator()"""
 
@@ -37,7 +37,7 @@ var asynChat = module.exports = function asynChat() {
     this.fifo = [];
 }
 
-asynChat.prototype = {
+Gab.prototype = {
     setEncoding: function(encoding) {
         this.encoding = encoding;
     },
@@ -58,6 +58,7 @@ asynChat.prototype = {
         });
 
         socket.on("error", function(e) {
+        console.trace()
             self.handleError.call(self, e);
         });
     },
