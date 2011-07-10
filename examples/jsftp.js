@@ -17,20 +17,11 @@ var Ftp = function (cfg) {
     var user = this.user = cfg.user;
     var pass = this.pass = cfg.pass;
 
-    this.commands = [
-        //"PASV", Ftp.handleResponse.PASV,
-        //"LIST",
-        "STAT /",
-        //"NOOP",
-        "PWD",
-        "TYPE I",
-        "QUIT",
-    ];
-
     this.data = "";
-    this.inMultiline = 0;
+    this.commands = [];
     this.response = [];
-    this.handler  = this.ftpHandleConnect;
+    this.inMultiline = 0;
+    this.handler = this.ftpHandleConnect;
 
     this.setTerminator("\r\n");
     this.setEncoding("utf8");
@@ -49,7 +40,7 @@ Ftp.handleResponse = {
         }
         else if (code === "331" || code === "332") {
             this.push("PASS " + this.pass + "\r\n");
-            this.handler = Ftp.handleResponse["PASS"];
+            this.handler = Ftp.handleResponse.PASS;
         }
         else {
             throw new Error("ftp login failed: user name not accepted");
@@ -67,13 +58,13 @@ Ftp.handleResponse = {
     "PASV": function(res) {
         var code = res.substring(0, 3); // get response code
         if (code !== "227")
-            return // pasv failed
+            return; // pasv failed
 
         var match = RE_PASV.exec(res);
         if (!match)
-            return // bad port
+            return; // bad port
 
-        port = (parseInt(match[1]) & 255) * 256 + (parseInt(match[2]) & 255);
+        var port = (parseInt(match[1]) & 255) * 256 + (parseInt(match[2]) & 255);
         // establish data connection
         new ftpDownload(this.host, port);
     }
@@ -84,8 +75,10 @@ Ftp.prototype.collectIncomingData = function(data) {
 };
 
 Ftp.prototype.foundTerminator = function() {
-    var data = this.data;
+    var data  = this.data;
     this.data = "";
+
+    this.busy = true; // proper place??
 
     if (this.inMultiline > 0) {
 
@@ -123,7 +116,8 @@ Ftp.prototype.foundTerminator = function() {
         }
     }
 
-    if (!RE_RESPONSE.test(data))
+    var ftpResponse = RE_RESPONSE.test(data);
+    if (!ftpResponse)
         return;
 
     var response  = this.response;
@@ -141,29 +135,67 @@ Ftp.prototype.foundTerminator = function() {
 
         handler.call(this, response[response.length - 1]);
 
+        // The previous call could have set the handler, in whih case we return
+        // to follow-up command in progress.
         if (this.handler)
-            return; // follow-up command in progress
+            return;
     }
 
-    var command;
-    if (this.commands.length) {
-        command = this.commands.shift();
-        var len = this.commands.length;
+    this.processCmd();
+};
 
-        if (len && typeof this.commands[0] === "function") {
-            this.handler = this.commands.shift();
+Ftp.prototype.processCmd = function(cmd) {
+    if (!cmd) {
+        if (this.commands.length) {
+            var command = this.commands.shift();
+
+            if (this.commands.length && typeof this.commands[0] === "function") {
+                this.handler = this.commands.shift();
+            }
+            console.log("C:", "'" + command + "'");
+
+            this.push(command + "\r\n");
+        } else {
+            this.busy = false;
         }
-        console.log("C:", "'" + command + "'");
-
-        this.push(command + "\r\n");
+    }
+    else {
+        this.commands.push(cmd);
+        if (!this.busy && this.connected)
+            this.processCmd();
     }
 };
 
 /**
  * http://cr.yp.to/ftp/type.html
  */
-Ftp.prototype.setBinary = function(enable) {
-    this.push( "TYPE " + (enabled ? "I" : "A") );
+Ftp.prototype.setBinary = function(enabled) {
+    this.commands.push( "TYPE " + (enabled ? "I" : "A") );
+};
+Ftp.prototype.type = Ftp.prototype.setBinary;
+
+// Downloads a file from FTP server, given a valid Path. It uses the RETR
+// command to retrieve the file. the `get` and `retr` methods are synonymous of
+// this method.
+Ftp.prototype.download = function(filePath) {
+    this.setBinary(true);
+    if (filePath) {
+        this.processCmd("PASV");
+    }
+};
+Ftp.prototype.get  = Ftp.prototype.download;
+Ftp.prototype.retr = Ftp.prototype.download;
+
+Ftp.prototype.list = function(path) {
+    this.processCmd("STAT " + path);
+};
+
+Ftp.prototype.pwd = function(path) {
+    this.processCmd("PWD");
+};
+
+Ftp.prototype.quit = function(path) {
+    this.processCmd("QUIT");
 };
 
 Ftp.prototype.ftpHandleConnect = function(res) {
@@ -177,7 +209,6 @@ Ftp.prototype.ftpHandleConnect = function(res) {
     }
 };
 
-
 var ftpDownload = function(host, port) {
     Gab.apply(this, arguments);
 
@@ -185,7 +216,7 @@ var ftpDownload = function(host, port) {
 
     this.socket = Net.createConnection(port, host);
     this.connect(host, port);
-}
+};
 
 ftpDownload.prototype = new Gab;
 ftpDownload.prototype.constructor = ftpDownload;
@@ -194,7 +225,7 @@ ftpDownload.prototype.writable = function() {
     return false;
 };
 
-ftpDownload.prototype.handleConnect = function(e) {console.log(e)};
+ftpDownload.prototype.handleConnect = function(e) { console.log(e); };
 
 ftpDownload.prototype.handleExpt = function() {
     this.close();
@@ -210,7 +241,13 @@ ftpDownload.prototype.handleClose = function() {
 var ftp = new Ftp({
     port: 21,
     host: "sergimansilla.com",
-    user: "",
-    pass: ""
+    user: "mrclash",
+    pass: "ketu48"
 });
+
+ftp.list("/");
+ftp.pwd();
+ftp.setBinary(true);
+
+setTimeout(function(){ftp.quit();}, 15000);
 
