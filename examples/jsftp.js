@@ -4,11 +4,13 @@ var Gab = require("../gab");
 var FTP_PORT = 21;
 
 var RE_PASV = /[-\d]+,[-\d]+,[-\d]+,[-\d]+,([-\d]+),([-\d]+)/;
+var RE_NEWLINE = /\r\n|\n/;
+var RE_NEWLINE_END = /\r\n|\n$/;
+var RE_MULTILINE  = /(\d\d\d)-/;
+var RE_RESPONSE = /^(\d\d\d)\s/;
 
 var Ftp = function (cfg) {
     Gab.apply(this, arguments);
-
-    this.data = "";
 
     var port = this.port = cfg.port || FTP_PORT;
     var host = this.host = cfg.host;
@@ -16,18 +18,21 @@ var Ftp = function (cfg) {
     var pass = this.pass = cfg.pass;
 
     this.commands = [
-        "PASV", Ftp.handleResponse.PASV,
-        "LIST",
-        //STAT /",
+        //"PASV", Ftp.handleResponse.PASV,
+        //"LIST",
+        "STAT /",
         //"NOOP",
         "PWD",
+        "TYPE I",
         "QUIT",
     ];
 
+    this.data = "";
+    this.inMultiline = 0;
     this.response = [];
     this.handler  = this.ftpHandleConnect;
 
-    this.setTerminator("\n");
+    this.setTerminator("\r\n");
     this.setEncoding("utf8");
 
     this.connect(port, host);
@@ -80,17 +85,48 @@ Ftp.prototype.collectIncomingData = function(data) {
 
 Ftp.prototype.foundTerminator = function() {
     var data = this.data;
-
-    if (data.charAt(data.length - 1) === "\r")
-        data = data.substring(0, data.length - 1);
-
     this.data = "";
-    this.response.push(data);
 
-    if (!/\d\d\d/.test(data))
+    if (this.inMultiline > 0) {
+
+        // If we are inside a multiline response, we append the data into the
+        // last response buffer, instead of creating a new one.
+        var len = this.response.length;
+        if (len)
+            this.response[len - 1] += "\n" + data;
+        else
+            this.response.push(data);
+
+        // We check to see if the current data line is signaling the end of the
+        // multiline response, in which case we set the `inMultiline` flag to
+        // 0. In case it is not, we return immediately without processing the
+        // response (yet).
+        var close = RE_RESPONSE.exec(data);
+        if (close && close[1] === this.inMultiline)
+            this.inMultiline = 0;
+        else
+            return;
+    } else {
+        // In case we are not in a multiline response, we check to see if the
+        // current data line response is signaling the beginning of a multiline
+        // one, in which case we set the `inMultiline` flag to the code of the
+        // response and return, to continue processing the rest of the response
+        // lines.
+        var blob = RE_MULTILINE.exec(data);
+        if (blob) {
+            this.response.push(data);
+            this.inMultiline = blob[1];
+            return;
+        }
+        else {
+            this.response.push(data);
+        }
+    }
+
+    if (!RE_RESPONSE.test(data))
         return;
 
-    var response = this.response;
+    var response  = this.response;
     this.response = [];
 
     response.forEach(function(line) {
@@ -137,7 +173,7 @@ Ftp.prototype.ftpHandleConnect = function(res) {
         this.handler = Ftp.handleResponse["USER"];
     }
     else {
-        throw new Exception("ftp login failed");
+        throw new Error("ftp login failed");
     }
 };
 
@@ -174,7 +210,7 @@ ftpDownload.prototype.handleClose = function() {
 var ftp = new Ftp({
     port: 21,
     host: "sergimansilla.com",
-    user: "mrclash",
+    user: "",
     pass: ""
 });
 
