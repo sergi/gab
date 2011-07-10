@@ -123,6 +123,13 @@ Ftp.prototype.foundTerminator = function() {
     }
 };
 
+/**
+ * http://cr.yp.to/ftp/type.html
+ */
+Ftp.prototype.setBinary = function(enable) {
+    this.push( "TYPE " + (enabled ? "I" : "A") );
+};
+
 Ftp.prototype.ftpHandleConnect = function(res) {
     var code = res.substring(0, 3); // get response code
     if (code === "220") {
