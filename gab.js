@@ -1,38 +1,15 @@
 /*
-A class supporting chat-style (command/response) protocols.
-
-This class adds support for 'chat' style protocols - where one side
-sends a 'command', and the other sends a response (examples would be
-the common internet protocols - smtp, nntp, ftp, etc..).
-
-The handle_read() method looks at the input stream for the current
-'terminator' (usually '\r\n' for single-line responses, '\r\n.\r\n'
-for multi-line output), calling self.found_terminator() on its
-receipt.
-
-for example:
-Say you build an async nntp client using this class.  At the start
-of the connection, you'll have self.terminator set to '\r\n', in
-order to process the single-line greeting.  Just before issuing a
-'LIST' command you'll set it to '\r\n.\r\n'.  The output of the LIST
-command will be accumulated (using your own 'collect_incoming_data'
-method) up to the terminator, and then control will be returned to
-you - by calling your self.found_terminator() method.
-*/
-
+ * @package gab
+ * @copyright Copyright(c) Sergi Mansilla <sergi.mansilla@gmail.com>
+ * @author Sergi Mansilla <sergi.mansilla@gmail.com>
+ * @license https://github.com/sergi/gab/blob/master/LICENSE MIT License
+ *
+ * Inspired by asynchat.py (http://svn.python.org/projects/python/branches/pep-0384/Lib/asynchat.py)
+ */
 var Net = require("net");
 
-var findPrefixAtEnd = function(haystack, needle) {
-    var l = needle.length - 1;
-
-    while (l && haystack.search(new RegExp(needle.substring(l) + "$")) !== -1)
-        l -= 1;
-
-    return l;
-};
-
-// This is an abstract class.  You must derive from this class, and add
-// the two methods collect_incoming_data() and found_terminator()"""
+// This is an abstract class. You must derive from this class, and add
+// the two methods collectIncomingData() and foundTerminator()
 var Gab = module.exports = function Gab(cfg) {
     this.inBuffer = "";
     this.incoming = [];
@@ -191,5 +168,14 @@ Gab.prototype = {
     foundTerminator: function() {
         throw new NotImplementedError("must be implemented in subclass")
     }
+};
+
+var findPrefixAtEnd = function(haystack, needle) {
+    var l = needle.length - 1;
+
+    while (l && haystack.search(new RegExp(needle.substring(l) + "$")) !== -1)
+        l -= 1;
+
+    return l;
 };
 

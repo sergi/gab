@@ -1,0 +1,29 @@
+{
+  "name": "gab",
+  "id": "gab",
+  "version": "0.0.1",
+  "description": "A module to help implement command/response protocols",
+  "keywords": [ "protocol", "command", "response", "chat", "nntp", "ftp" ],
+  "author": "Sergi Mansilla <sergi.mansilla@gmail.com> (http://sergimansilla.com)",
+  "homepage": "https://github.com/sergi/gab",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sergi/gab.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sergi/gab/issues"
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+  },
+  "main": "./gab.js",
+  "engines": {
+    "node": ">=0.4"
+  },
+  "licenses": [{
+    "type" : "MIT",
+    "url" : "https://github.com/sergi/gab/blob/master/LICENSE"
+  }]
+}
+
