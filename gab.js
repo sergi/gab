@@ -22,49 +22,50 @@ you - by calling your self.found_terminator() method.
 
 var Net = require("net");
 
-var Gab = module.exports = function Gab() {
-    // This is an abstract class.  You must derive from this class, and add
-    // the two methods collect_incoming_data() and found_terminator()"""
+var findPrefixAtEnd = function(haystack, needle) {
+    var l = needle.length - 1;
 
-    // we don't want to enable the use of encoding by default, because that is a
-    // sign of an application bug that we don't want to pass silently
-    var use_encoding = 0
-    var encoding     = 'latin-1'
+    while (l && haystack.search(new RegExp(needle.substring(l) + "$")) !== -1)
+        l -= 1;
 
-    // for string terminator matching
+    return l;
+};
+
+// This is an abstract class.  You must derive from this class, and add
+// the two methods collect_incoming_data() and found_terminator()"""
+var Gab = module.exports = function Gab(cfg) {
     this.inBuffer = "";
     this.incoming = [];
     this.fifo = [];
-}
+
+    this.encoding = (cfg && cfg.encoding) || "utf8";
+    this.terminator = (cfg && cfg.terminator) || "\r\n";
+};
 
 Gab.prototype = {
-    setEncoding: function(encoding) {
-        this.encoding = encoding;
-    },
     connect: function(port, host) {
         this.socket = Net.createConnection(port, host);
+        this.socket.setEncoding(this.encoding);
 
-        this.socket.setEncoding(this.encoding || "utf8");
-
-        var self   = this;
-        var socket = this.socket;
-
-        socket.on("connect", function(e) {
+        var self = this;
+        this.socket.on("connect", function(e) {
             self.handleConnect.call(self, e);
         });
 
-        socket.on("data", function(data) {
+        this.socket.on("data", function(data) {
             self.handleRead.call(self, data);
         });
 
-        socket.on("error", function(e) {
-        console.trace()
+        this.socket.on("error", function(e) {
+            console.trace()
             self.handleError.call(self, e);
         });
     },
+
     handleConnect: function(e) {
         this.connected = true;
     },
+
     handleRead: function(data) {
         // Continue to search for self.terminator in self.ac_in_buffer,
         // while calling self.collect_incoming_data.  The while loop
@@ -73,7 +74,7 @@ Gab.prototype = {
 
         this.inBuffer += data;
 
-        while (this.inBuffer) {
+        while(this.inBuffer) {
             var dataLen = this.inBuffer.length;
             var terminator = this.terminator;
 
@@ -109,20 +110,21 @@ Gab.prototype = {
                 var terminatorLen = terminator.length;
                 var index = this.inBuffer.indexOf(terminator);
 
-                if (index != -1) {
+                if (index !== -1) {
                     // we found the terminator
-                    if (index > 0)
+                    if (index > 0) {
                         // don't bother reporting the empty string (source of subtle bugs)
                         this.collectIncomingData (this.inBuffer.substring(0, index));
+                    }
                     this.inBuffer = this.inBuffer.substring(index + terminatorLen);
                     // This does the Right Thing if the terminator is changed here.
-                    this.foundTerminator()
+                    this.foundTerminator();
                 }
                 else {
                     // check for a prefix of the terminator
                     index = findPrefixAtEnd(this.inBuffer, terminator);
                     if (index) {
-                        if (index != dataLen) {
+                        if (index !== dataLen) {
                             // we found a prefix, collect up to the prefix
                             this.collectIncomingData(this.inBuffer.substring(0, index));
                             this.inBuffer = this.inBuffer.substring(index);
@@ -139,65 +141,55 @@ Gab.prototype = {
         }
     },
     send: function(data) {
-        if (!this.socket || !this.socket.writable)
+        var socket = this.socket;
+        if (!socket || !socket.writable)
             this.handleError();
 
         if (!this.connected) {
-            console.error("The socket is not connected.");
-            return;
+            return socket.on("connect", function sendOnConnect() {
+                socket.write(data);
+                socket.removeListener("connect", sendOnConnect);
+            });
         }
-
-        return this.socket.write(data)
+        return socket.write(data)
     },
-
     push: function(data) {
         this.fifo.push(data);
         return this.initiateSend();
     },
-
     initiateSend: function() {
         if (this.fifo.length) {
             var data = this.fifo.shift();
             this.send(data);
         }
     },
-
     handleError: function(e) {
         console.error("An error ocurred:", e);
         this.handleClose(e);
     },
-
     handleClose: function() {
         console.warn("Unhandled close event");
         this.socket.close();
     },
-
     close: function() {
         this.connected = false;
 
         try {
             this.socket.end()
-        } catch (e) {
+        }
+        catch (e) {
             // If not ENOTCONN or EBADF
             // if why.args[0] not in (ENOTCONN, EBADF):
                 //raise
             throw e;
         }
     },
-
     collectIncomingData: function(data) {
         throw new NotImplementedError("must be implemented in subclass")
     },
 
     foundTerminator: function() {
         throw new NotImplementedError("must be implemented in subclass")
-    },
-
-    setTerminator: function(term) {
-        //if (typeof term === "string" && this.use_encoding)
-            //term = bytes(term, self.encoding)
-
-        this.terminator = term;
     }
-}
+};
 
