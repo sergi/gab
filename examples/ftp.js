@@ -1,9 +1,11 @@
+/**
+ * Example of a naïve FTP client using Gab
+ */
+
 var Net = require("net");
 var Gab = require("../gab");
 
-var FTP_PORT = 21;
-
-var anonFtp = function (cfg) {
+var Ftp = function (cfg) {
     Gab.apply(this, arguments);
 
     this.data = ""
@@ -14,24 +16,23 @@ var anonFtp = function (cfg) {
     this.commands = [
         "QUIT",
         "PWD",
-        "PASS 2x8hebsndr9",
-        "USER sergi",
+        "PASS xxxx", // Your password here
+        "USER user", // Your user here
     ];
 
-    this.setTerminator("\n");
-    this.setEncoding("utf8")
+    this.terminator = "\n";
 
     this.connect(port, host);
 }
 
-anonFtp.prototype = new Gab;
-anonFtp.prototype.constructor = anonFtp;
+Ftp.prototype = new Gab;
+Ftp.prototype.constructor = Ftp;
 
-anonFtp.prototype.collectIncomingData = function(data) {
+Ftp.prototype.collectIncomingData = function(data) {
     this.data += data;
 };
 
-anonFtp.prototype.foundTerminator = function() {
+Ftp.prototype.foundTerminator = function() {
     var data = this.data;
     var command;
 
@@ -51,7 +52,7 @@ anonFtp.prototype.foundTerminator = function() {
     }
 };
 
-var ftp = new anonFtp({
-    port: 2021,
+var ftp = new Ftp({
+    port: 21,
     host: "localhost"
 });
