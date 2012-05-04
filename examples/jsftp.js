@@ -236,18 +236,17 @@ ftpDownload.prototype.handleClose = function() {
 };
 
 
-
 // Fire it up. For test purposes only!
 var ftp = new Ftp({
     port: 21,
-    host: "sergimansilla.com",
-    user: "mrclash",
-    pass: "ketu48"
+    host: "localhost",
+    user: "user", // Your user here
+    pass: "pass"  // Your password here
 });
 
 ftp.list("/");
 ftp.pwd();
 ftp.setBinary(true);
 
-setTimeout(function(){ftp.quit();}, 15000);
+setTimeout(function(){ ftp.quit(); }, 15000);
 
