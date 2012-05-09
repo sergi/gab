@@ -15,14 +15,16 @@ var Gab = module.exports = function Gab(cfg) {
     this.incoming = [];
     this.fifo = [];
 
-    this.encoding = (cfg && cfg.encoding) || "utf8";
+    this.encoding = (cfg && cfg.encoding);
     this.terminator = (cfg && cfg.terminator) || "\r\n";
 };
 
 Gab.prototype = {
     connect: function(port, host) {
         this.socket = Net.createConnection(port, host);
-        this.socket.setEncoding(this.encoding);
+
+        if (this.encoding)
+            this.socket.setEncoding(this.encoding);
 
         var self = this;
         this.socket.on("connect", function(e) {

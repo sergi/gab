@@ -1,7 +1,7 @@
 {
   "name": "gab",
   "id": "gab",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A module to help implement command/response protocols",
   "keywords": [ "protocol", "command", "response", "chat", "nntp", "ftp" ],
   "author": "Sergi Mansilla <sergi.mansilla@gmail.com> (http://sergimansilla.com)",
